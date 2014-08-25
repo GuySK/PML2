@@ -1,71 +1,418 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>PML2 by GuySK</title>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1>PML - Course Project</h1>
+<h4>August 2014</h4>
+<h2>Summary</h2>
+<p>The purpose of this report is to present a model for automatically assessing the quality of execution of weight lifting exercises. Such model could be very useful as part of a supervisor system that provides real-time feedback to athletes, who risk serious injuries when performing exercises incorrectly.</p>
+<p>Several predicting models were fitted and evaluated, belonging to two different approaches to predicting modelling: Linear models and non-parametric models. Among the first field, we tried Linear Discriminant Analysis (LDA) and Partial Least Squares (PLS). On the other side, we built two models based on classification trees, a base one and the bootstrap aggregation version.</p>
+<p>Linear models performed poorly, not reaching 70% of Accuracy while both models based on classification trees attained an accuracy level beyond 80%. In particular, the bagged version of the classification trees attained an overall accuracy level of almost 99%.</p>
+<h2>Introduction</h2>
+<p>Qualitative Activity Recognition of Weight Lifting Exercises <a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a> (<a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a>)</p>
+<p>It is well-agreed among physicians that physical activity leads to a better and longer life. An effective way of improving cardio-respiratory fitness is to regularly perform muscle strengthening activities through free weights exercises.</p>
+<p>The main drawback to this approach is that incorrect technique has been identified as an important source of training injuries, accounting for most of the weight training-related injuries (90.4%)in the U.S.</p>
+<p>A particularly promising idea for preventing insuries is to provide feedback on the quality of the execution of exercices using on-body sensors. Sensors data could be uses to feed a supervisor system, which could automatically assess the quality of execution and provide real-time feedback to the athlete.</p>
+<h2>Exploring the data</h2>
+<h3>Setting up the training and testing data sets</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">setwd</span>(<span class="st">&quot;C:/Users/AAB330/Google Drive 2/training/DataScience/PracticalMachineLearning/CourseProject&quot;</span>)
+<span class="kw">source</span>(<span class="st">&quot;AuxFunctions.R&quot;</span>)
+<span class="kw">library</span>(ggplot2); <span class="kw">library</span>(lattice); <span class="kw">library</span>(caret)
+<span class="kw">set.seed</span>(<span class="dv">758120</span>)
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-  </head>
-  <body>
-    <div class="wrapper">
-      <header>
-        <h1>PML2</h1>
-        <p>Used to host a gh-page</p>
+files &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;pml-testing.csv&quot;</span>, <span class="st">&quot;pml-training.csv&quot;</span>)
+testing &lt;-<span class="st"> </span><span class="kw">read.table</span>(<span class="dt">file =</span> files[<span class="dv">1</span>], <span class="dt">header =</span> T, <span class="dt">sep =</span> <span class="st">&quot;,&quot;</span>)
+training &lt;-<span class="st"> </span><span class="kw">read.table</span>(<span class="dt">file =</span> files[<span class="dv">2</span>], <span class="dt">header =</span> T, <span class="dt">sep =</span> <span class="st">&quot;,&quot;</span>)
 
-        <p class="view"><a href="https://github.com/GuySK/PML2">View the Project on GitHub <small>GuySK/PML2</small></a></p>
+train &lt;-<span class="st"> </span><span class="kw">createDataPartition</span>(training$classe, <span class="dt">p=</span>.<span class="dv">75</span>, <span class="dt">list=</span>F)    <span class="co"># split the data set</span>
+trainSet &lt;-<span class="st"> </span>training[train,]                                    <span class="co"># training</span>
+testSet &lt;-<span class="st"> </span>training[-train,]                                    <span class="co"># testing</span>
 
+<span class="kw">dim</span>(trainSet); <span class="kw">dim</span>(testSet)</code></pre>
+<pre><code>## [1] 14718   160</code></pre>
+<pre><code>## [1] 4904  160</code></pre>
+<h3>Identifying variables</h3>
+<p>Data collected in the study comes from four 9 degrees of freedom Razor inertial measurement units (IMU), which provide three-axes acceleration, gyroscope and magnetometer data at a joint sampling rate of 45 Hz. We can easily identify four groups of variables in the data set corresponding to sensors placed on the dumbbell and the performer’s belt, arm and forearm. A fifth group collects other general information variables, such as timestamp, performer’s id, etc.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># groups of variables</span>
+dumbbell &lt;-<span class="st"> </span><span class="kw">grep</span>(<span class="dt">pattern =</span> <span class="st">&quot;_dumbbell&quot;</span>, <span class="kw">names</span>(trainSet), <span class="dt">value =</span> F)
+forearm &lt;-<span class="st"> </span><span class="kw">grep</span>(<span class="dt">pattern =</span> <span class="st">&quot;_forearm&quot;</span>, <span class="kw">names</span>(trainSet), <span class="dt">value =</span> F)
+arm &lt;-<span class="st"> </span><span class="kw">grep</span>(<span class="dt">pattern =</span> <span class="st">&quot;_arm&quot;</span>, <span class="kw">names</span>(trainSet), <span class="dt">value =</span> F)
+belt &lt;-<span class="st"> </span><span class="kw">grep</span>(<span class="dt">pattern =</span> <span class="st">&quot;_belt&quot;</span>, <span class="kw">names</span>(trainSet), <span class="dt">value =</span> F)
+movedata &lt;-<span class="st"> </span><span class="kw">c</span>(belt, arm, forearm, dumbbell)
 
-        <ul>
-          <li><a href="https://github.com/GuySK/PML2/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/GuySK/PML2/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/GuySK/PML2">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+<span class="co"># Group variables contents</span>
+<span class="co"># Movement data groups</span>
+<span class="kw">names</span>(trainSet)[dumbbell] </code></pre>
+<pre><code>##  [1] &quot;roll_dumbbell&quot;            &quot;pitch_dumbbell&quot;          
+##  [3] &quot;yaw_dumbbell&quot;             &quot;kurtosis_roll_dumbbell&quot;  
+##  [5] &quot;kurtosis_picth_dumbbell&quot;  &quot;kurtosis_yaw_dumbbell&quot;   
+##  [7] &quot;skewness_roll_dumbbell&quot;   &quot;skewness_pitch_dumbbell&quot; 
+##  [9] &quot;skewness_yaw_dumbbell&quot;    &quot;max_roll_dumbbell&quot;       
+## [11] &quot;max_picth_dumbbell&quot;       &quot;max_yaw_dumbbell&quot;        
+## [13] &quot;min_roll_dumbbell&quot;        &quot;min_pitch_dumbbell&quot;      
+## [15] &quot;min_yaw_dumbbell&quot;         &quot;amplitude_roll_dumbbell&quot; 
+## [17] &quot;amplitude_pitch_dumbbell&quot; &quot;amplitude_yaw_dumbbell&quot;  
+## [19] &quot;total_accel_dumbbell&quot;     &quot;var_accel_dumbbell&quot;      
+## [21] &quot;avg_roll_dumbbell&quot;        &quot;stddev_roll_dumbbell&quot;    
+## [23] &quot;var_roll_dumbbell&quot;        &quot;avg_pitch_dumbbell&quot;      
+## [25] &quot;stddev_pitch_dumbbell&quot;    &quot;var_pitch_dumbbell&quot;      
+## [27] &quot;avg_yaw_dumbbell&quot;         &quot;stddev_yaw_dumbbell&quot;     
+## [29] &quot;var_yaw_dumbbell&quot;         &quot;gyros_dumbbell_x&quot;        
+## [31] &quot;gyros_dumbbell_y&quot;         &quot;gyros_dumbbell_z&quot;        
+## [33] &quot;accel_dumbbell_x&quot;         &quot;accel_dumbbell_y&quot;        
+## [35] &quot;accel_dumbbell_z&quot;         &quot;magnet_dumbbell_x&quot;       
+## [37] &quot;magnet_dumbbell_y&quot;        &quot;magnet_dumbbell_z&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(<span class="kw">names</span>(trainSet)[forearm]); <span class="kw">head</span>(<span class="kw">names</span>(trainSet)[arm]); <span class="kw">head</span>(<span class="kw">names</span>(trainSet)[belt])</code></pre>
+<pre><code>## [1] &quot;roll_forearm&quot;           &quot;pitch_forearm&quot;         
+## [3] &quot;yaw_forearm&quot;            &quot;kurtosis_roll_forearm&quot; 
+## [5] &quot;kurtosis_picth_forearm&quot; &quot;kurtosis_yaw_forearm&quot;</code></pre>
+<pre><code>## [1] &quot;roll_arm&quot;        &quot;pitch_arm&quot;       &quot;yaw_arm&quot;         &quot;total_accel_arm&quot;
+## [5] &quot;var_accel_arm&quot;   &quot;avg_roll_arm&quot;</code></pre>
+<pre><code>## [1] &quot;roll_belt&quot;           &quot;pitch_belt&quot;          &quot;yaw_belt&quot;           
+## [4] &quot;total_accel_belt&quot;    &quot;kurtosis_roll_belt&quot;  &quot;kurtosis_picth_belt&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Other</span>
+<span class="kw">names</span>(trainSet)[-<span class="kw">c</span>(movedata, <span class="dv">160</span>)]</code></pre>
+<pre><code>## [1] &quot;X&quot;                    &quot;user_name&quot;            &quot;raw_timestamp_part_1&quot;
+## [4] &quot;raw_timestamp_part_2&quot; &quot;cvtd_timestamp&quot;       &quot;new_window&quot;          
+## [7] &quot;num_window&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Target</span>
+<span class="kw">unique</span>(trainSet$classe)</code></pre>
+<pre><code>## [1] A B C D E
+## Levels: A B C D E</code></pre>
+<p>Each data movement group contains 38 variables, while the general purpose data group contains 7 variables. Variable 160 is the target feature, named ‘classe’, a factor variable of 5 levels. Each level corresponds to a certain way of performing the exercise. Class A represents a well-performed exercise, while the other four classes label different common errors. We can see that classes are well-balanced across the training set.</p>
+<pre class="sourceCode r"><code class="sourceCode r">t &lt;-<span class="st"> </span><span class="kw">table</span>(trainSet$user_name, trainSet$classe)
+totclass &lt;-<span class="st"> </span><span class="kw">apply</span>(t, <span class="dv">2</span>, sum)
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<span class="co"># classes</span>
+(<span class="kw">rbind</span>(<span class="dt">Recs =</span> <span class="kw">round</span>(totclass,<span class="dv">0</span>), <span class="dt">PerCent =</span> <span class="kw">round</span>(totclass /<span class="st"> </span><span class="kw">sum</span>(totclass),<span class="dv">2</span>)*<span class="dv">100</span>))</code></pre>
+<pre><code>##            A    B    C    D    E
+## Recs    4185 2848 2567 2412 2706
+## PerCent   28   19   17   16   18</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Performers</span>
+(<span class="kw">round</span>(<span class="kw">sweep</span>(t, <span class="dv">2</span>, totclass, <span class="st">&quot;/&quot;</span>), <span class="dv">2</span>))</code></pre>
+<pre><code>##           
+##               A    B    C    D    E
+##   adelmo   0.21 0.20 0.22 0.16 0.18
+##   carlitos 0.15 0.18 0.15 0.15 0.17
+##   charles  0.16 0.20 0.16 0.20 0.20
+##   eurico   0.16 0.15 0.14 0.18 0.15
+##   jeremy   0.21 0.13 0.19 0.16 0.16
+##   pedro    0.12 0.14 0.15 0.14 0.14</code></pre>
+<h2>Data cleansing</h2>
+<p>We now try to identify those variables with no variation or almost no variation along the data set. We use the nearZeroVar function from the Caret package for that.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Variables without significant variance. </span>
+<span class="kw">library</span>(ggplot2); <span class="kw">library</span>(lattice); <span class="kw">library</span>(caret)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">nzvMetrics &lt;-<span class="st"> </span><span class="kw">nearZeroVar</span>(trainSet,<span class="dt">saveMetrics=</span>T) <span class="co"># Default threshold is 95%.</span>
+<span class="kw">head</span>(nzvMetrics[nzvMetrics$nzv ==<span class="st"> </span>T, <span class="dv">1</span>:<span class="dv">2</span>]); <span class="kw">sum</span>(nzvMetrics$nzv ==<span class="st"> </span>T)</code></pre>
+<pre><code>##                      freqRatio percentUnique
+## new_window               48.72       0.01359
+## kurtosis_roll_belt     1442.20       1.94999
+## kurtosis_picth_belt     721.10       1.62386
+## kurtosis_yaw_belt        48.72       0.01359
+## skewness_roll_belt     1602.44       1.94320
+## skewness_roll_belt.1    721.10       1.72578</code></pre>
+<pre><code>## [1] 55</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">purge &lt;-<span class="st"> </span><span class="kw">which</span>(nzvMetrics$nzv ==<span class="st"> </span>T)        <span class="co"># mark them for removal</span>
+purged.nzv &lt;-<span class="st"> </span><span class="kw">names</span>(trainSet)[purge]       <span class="co"># remember them just in case</span>
+trainSet &lt;-<span class="st"> </span>trainSet[,-purge]              <span class="co"># get rid of them </span>
+testSet &lt;-<span class="st"> </span>testSet[,-purge]                <span class="co"># also from the test set </span></code></pre>
+<p>Let us check now for missing values. We assume that more than 95% of values missing for a given variable makes it candidate for removal. We use a simple but useful custom function for that: na.pct.</p>
+<pre class="sourceCode r"><code class="sourceCode r">NA.THRESHOLD &lt;-<span class="st"> </span><span class="dv">95</span>                          <span class="co"># set threshold to 95%</span>
+<span class="kw">head</span>(<span class="kw">names</span>(trainSet)[<span class="kw">na.pct</span>(trainSet) &gt;<span class="st"> </span>NA.THRESHOLD])  <span class="co"># get vars with more than 95% NAs</span></code></pre>
+<pre><code>## [1] &quot;max_roll_belt&quot;        &quot;max_picth_belt&quot;       &quot;min_roll_belt&quot;       
+## [4] &quot;min_pitch_belt&quot;       &quot;amplitude_roll_belt&quot;  &quot;amplitude_pitch_belt&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">sum</span>(<span class="kw">na.pct</span>(trainSet) &gt;<span class="st"> </span>NA.THRESHOLD)        <span class="co"># number of columns with 95% + NAs</span></code></pre>
+<pre><code>## [1] 46</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">purge &lt;-<span class="st"> </span><span class="kw">na.pct</span>(trainSet) &gt;=<span class="st"> </span>NA.THRESHOLD   <span class="co"># marked them out for removal</span>
+purged.na &lt;-<span class="st"> </span><span class="kw">names</span>(trainSet)[purge]         <span class="co"># remember them just in case</span>
+trainSet &lt;-<span class="st"> </span>trainSet[, !purge]              <span class="co"># remove them from training data set</span>
+testSet &lt;-<span class="st"> </span>testSet[, !purge]                <span class="co"># and testing</span>
+targetCol &lt;-<span class="st"> </span><span class="kw">ncol</span>(trainSet)                 <span class="co"># remember our target&#39;s column  </span>
+<span class="kw">sum</span>(<span class="kw">na.pct</span>(trainSet) &gt;<span class="st"> </span><span class="dv">0</span>)                   <span class="co"># check if any NAs left</span></code></pre>
+<pre><code>## [1] 0</code></pre>
+<p>The following columns are also not needed. Certainly, we do not want to get predictions based on the user. Also, time related variables, such as timestamps and windows are of no use, since we will be using each sample for building the model independently. We remove the following columns accordingly.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">names</span>(trainSet)[<span class="dv">1</span>:<span class="dv">6</span>]</code></pre>
+<pre><code>## [1] &quot;X&quot;                    &quot;user_name&quot;            &quot;raw_timestamp_part_1&quot;
+## [4] &quot;raw_timestamp_part_2&quot; &quot;cvtd_timestamp&quot;       &quot;num_window&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">purged.other &lt;-<span class="st"> </span><span class="kw">names</span>(trainSet)[<span class="dv">1</span>:<span class="dv">6</span>]        <span class="co"># keep track of purged columns</span>
+trainSet &lt;-<span class="st"> </span>trainSet[, -(<span class="dv">1</span>:<span class="dv">6</span>)]              <span class="co"># remove from training set</span>
+testSet &lt;-<span class="st"> </span>testSet[, -(<span class="dv">1</span>:<span class="dv">6</span>)]                <span class="co"># and testing</span>
+targetCol &lt;-<span class="st"> </span><span class="kw">ncol</span>(trainSet)                 <span class="co"># remember our target position</span>
+<span class="kw">save</span>(trainSet, testSet, <span class="dt">file=</span><span class="st">&quot;trtst.ds1&quot;</span>)   <span class="co"># save data sets for later use </span>
+<span class="kw">dim</span>(trainSet)[<span class="dv">2</span>]; <span class="kw">dim</span>(testSet)[<span class="dv">2</span>]           <span class="co"># number of variables with useful data</span></code></pre>
+<pre><code>## [1] 53</code></pre>
+<pre><code>## [1] 53</code></pre>
+<p>For some models, correlations among predictors may cause degradation of model performance. This is especially valid for parametric models. The Caret package includes the function <em>findCorrelation</em> that identifies highly correlated variables among predictors. We let the function use the default correlation coefficient limit to flag variables, which is 0.90. We will use this info to remove the following variables when fitting parametric models:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">names</span>(trainSet)[corCols &lt;-<span class="st"> </span><span class="kw">findCorrelation</span>(<span class="kw">cor</span>(trainSet[,-targetCol]))] </code></pre>
+<pre><code>## [1] &quot;accel_belt_z&quot; &quot;roll_belt&quot;    &quot;accel_belt_y&quot; &quot;accel_belt_x&quot;
+## [5] &quot;gyros_arm_y&quot;</code></pre>
+<h4>Transforming skewed variables</h4>
+<p>Skewed distributions may cause problems to linear models. A general rule of thumb to consider is that skewed data whose ratio of the highest value to the lowest value is greater than 20 have significant skewness.[1] Another option is to use the skewness statistic as a diagnostic. We take this approach in this case, flagging all variables with a lambda coefficient greater than 0.8 in absolute value.</p>
+<p>[1] Kuhn, Max; Johnson, Kjell. Applied Predictive Modeling (Page 31). Springer. Kindle Edition.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(e1071)
+SKEW.THRESHOLD &lt;-<span class="st"> </span><span class="fl">0.8</span>                                    <span class="co"># abs(Lambda) limit</span>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+<span class="co"># Getting skewed variables</span>
+skewValues &lt;-<span class="st"> </span><span class="kw">apply</span>(trainSet[,-targetCol], <span class="dv">2</span>, skewness)  <span class="co"># get lambda values</span>
+skewed &lt;-<span class="st"> </span><span class="kw">which</span>(skewValues &gt;<span class="st"> </span><span class="kw">abs</span>(SKEW.THRESHOLD))        <span class="co"># select vars above threshold</span></code></pre>
+<p>The corresponding histograms are shown in <strong>Fig 1. Skewed variables</strong> in the Appendix. It can be noted that all skewed variables contain negative values, so neither log() or any other Box-Cox transformation can be immediately applied. We perform a translation before applying the corresponfing Box-Cox transformations. The function BoxCoxTrans included in the Caret package will apply the appropriate transformation according to the value of Lambda.</p>
+<pre class="sourceCode r"><code class="sourceCode r">trans &lt;-<span class="st"> </span>function(x) {x +<span class="st"> </span><span class="kw">abs</span>(<span class="kw">min</span>(x)) +<span class="st"> </span><span class="dv">1</span>}    <span class="co"># traslation function </span>
+trainSet[,skewed] &lt;-<span class="st"> </span><span class="kw">trans</span>(trainSet[,skewed]) <span class="co"># move the distribution out of negative axis </span>
+testSet[,skewed] &lt;-<span class="st"> </span><span class="kw">trans</span>(testSet[,skewed])   <span class="co"># same for the testing set</span>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+lambdas &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="dv">0</span>,<span class="kw">length</span>(skewed))              <span class="co"># vector to keep lambda coefficients</span>
+for (i in <span class="dv">1</span>:<span class="kw">length</span>(skewed)) {                 
+    bcTrf &lt;-<span class="st"> </span><span class="kw">BoxCoxTrans</span>(trainSet[,skewed[i]]) <span class="co"># get Box-Cox transform values</span>
+    lambdas[i] &lt;-<span class="st"> </span>bcTrf$lambda                 <span class="co"># retrieve lambda to include in plots</span>
+    trainSet[,skewed[i]] &lt;-<span class="st"> </span><span class="kw">predict</span>(bcTrf, trainSet[,skewed[i]]) <span class="co"># apply to train set</span>
+    testSet[,skewed[i]] &lt;-<span class="st"> </span><span class="kw">predict</span>(bcTrf, testSet[,skewed[i]])   <span class="co"># same trans to test set</span>
+}</code></pre>
+<p>Histograms of the transformed variables are shown in <strong>Fig 2. Skewed variables after Box-Cox transformations</strong> in the Appendix.</p>
+<h4>Additional transformations</h4>
+<p>Finally, we will center and scale all numeric variables. We use the preProcess function included in the Caret package. This function can apply several different transformation but defaults to center and scale.</p>
+<p>These manipulations are generally used to improve the numerical stability of some calculations. Some models benefit from the predictors being on a common scale. The only real downside to these transformations is a loss of interpretability of the individual values since the data are no longer in the original units[2].</p>
+<p>[2] Kuhn, Max; Johnson, Kjell. Applied Predictive Modeling. Springer. Kindle Edition.</p>
+<pre class="sourceCode r"><code class="sourceCode r">cst &lt;-<span class="st"> </span><span class="kw">preProcess</span>(trainSet[,-targetCol])                     <span class="co"># get transform values </span>
+trainSet[,-targetCol] &lt;-<span class="st"> </span><span class="kw">predict</span>(cst, trainSet[,-targetCol]) <span class="co"># apply to training set</span>
+testSet[, -targetCol] &lt;-<span class="st"> </span><span class="kw">predict</span>(cst, testSet[,-targetCol])  <span class="co"># and same values to test set </span></code></pre>
+<h2>Candidates Models</h2>
+<h3>Linear Discriminant</h3>
+<p>We will first fit a parametric model: LDA. We will try a couple of linear models just to check if this particular problem can be treated with a parametric approach.</p>
+<pre class="sourceCode r"><code class="sourceCode r">ldaMdl &lt;-<span class="st"> </span><span class="kw">train</span>(trainSet$classe ~<span class="st"> </span>., <span class="dt">data=</span>trainSet, <span class="dt">method=</span><span class="st">&quot;lda&quot;</span>) <span class="co"># fit model</span>
+testPredict &lt;-<span class="st"> </span><span class="kw">predict</span>(ldaMdl, <span class="dt">newdata=</span>testSet[, -targetCol])     <span class="co"># get results</span>
+cm1 &lt;-<span class="st"> </span><span class="kw">confusionMatrix</span>(testPredict, testSet[, targetCol])         <span class="co"># confusion matrix</span>
+accuracyTable &lt;-<span class="st"> </span><span class="kw">getAcc</span>(cm1, <span class="dt">mdlName=</span><span class="st">&quot;lda&quot;</span>)                       <span class="co"># keep results </span>
+cm1$overall[<span class="dv">1</span>:<span class="dv">2</span>]; <span class="kw">t</span>(cm1$byClass)                                  <span class="co"># show results</span></code></pre>
+<pre><code>## Accuracy    Kappa 
+##   0.6890   0.6068</code></pre>
+<pre><code>##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.7971   0.6312   0.6725   0.7239   0.5671
+## Specificity            0.9122   0.9173   0.8936   0.9224   0.9648
+## Pos Pred Value         0.7831   0.6469   0.5716   0.6467   0.7837
+## Neg Pred Value         0.9188   0.9120   0.9282   0.9446   0.9083
+## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
+## Detection Rate         0.2268   0.1221   0.1173   0.1187   0.1042
+## Detection Prevalence   0.2896   0.1888   0.2051   0.1835   0.1330
+## Balanced Accuracy      0.8547   0.7743   0.7830   0.8232   0.7660</code></pre>
+<p>LDA assumes data comes from a multivariate normal distribution. This may most probably not be the case here, seeing the skewness many variables have shown. Additionally, there seems to be a high number of correlated predictors. Both conditions are hindrances to LDA performance.</p>
+<h3>Partial Least Squares</h3>
+<p>If the correlation among predictors is high, then the ordinary least squares solution for multiple linear regression will have high variability and will become unstable.<a href="#fn1"><sup>1</sup></a></p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">source</span>(<span class="st">&quot;AuxFunctions.R&quot;</span>)
+<span class="kw">library</span>(caret); <span class="kw">library</span>(pls); <span class="kw">library</span>(klaR)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;pls&#39;
+## 
+## The following object is masked from &#39;package:caret&#39;:
+## 
+##     R2
+## 
+## The following object is masked from &#39;package:stats&#39;:
+## 
+##     loadings
+## 
+## Loading required package: MASS</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">set.seed</span>(<span class="dv">758120</span>)
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+ctrl &lt;-<span class="st"> </span><span class="kw">trainControl</span>(<span class="dt">classProbs =</span> <span class="ot">TRUE</span>, 
+                     <span class="dt">savePredictions =</span> <span class="ot">TRUE</span>)    <span class="co"># control parameters</span>
+ncomp &lt;-<span class="st"> </span><span class="dv">32</span>                                     <span class="co"># number of components to include</span>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+plsdaFit &lt;-<span class="st"> </span><span class="kw">plsda</span>(<span class="dt">x =</span> trainSet[, -targetCol],  
+                  <span class="dt">y =</span> trainSet$classe,
+                  <span class="dt">ncomp =</span> ncomp,                <span class="co"># number of components</span>
+                  <span class="dt">probMethod =</span> <span class="st">&quot;Bayes&quot;</span>,         <span class="co"># class probabilities</span>
+                  <span class="dt">trControl =</span> ctrl)             <span class="co"># control parameters</span></code></pre>
+<pre><code>## Warning: Numerical 0 probability for all classes with observation 13488
+## Warning: Numerical 0 probability for all classes with observation 13488
+## Warning: Numerical 0 probability for all classes with observation 13488
+## Warning: Numerical 0 probability for all classes with observation 13488</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">plsda.pred &lt;-<span class="st"> </span><span class="kw">predict</span>(plsdaFit, <span class="dt">newdata=</span>testSet[, -targetCol]) <span class="co"># get predictions</span></code></pre>
+<pre><code>## Warning: Numerical 0 probability for all classes with observation 1358
+## Warning: Numerical 0 probability for all classes with observation 2323</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cm2 &lt;-<span class="st"> </span><span class="kw">confusionMatrix</span>(plsda.pred, testSet[, targetCol])       <span class="co"># results</span>
+accuracyTable &lt;-<span class="st"> </span><span class="kw">getAcc</span>(cm2, accuracyTable, <span class="dt">mdlName=</span><span class="st">&quot;pls&quot;</span>)     <span class="co"># add model&#39;s results </span>
+cm2$overall[<span class="dv">1</span>:<span class="dv">2</span>]; <span class="kw">t</span>(cm2$byClass)                               <span class="co"># show results</span></code></pre>
+<pre><code>## Accuracy    Kappa 
+##   0.6523   0.5602</code></pre>
+<pre><code>##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.7792   0.6660   0.6655   0.7264  0.36293
+## Specificity            0.8988   0.8948   0.8822   0.9027  0.98551
+## Pos Pred Value         0.7538   0.6031   0.5440   0.5941  0.84935
+## Neg Pred Value         0.9110   0.9178   0.9259   0.9439  0.87298
+## Prevalence             0.2845   0.1935   0.1743   0.1639  0.18373
+## Detection Rate         0.2217   0.1289   0.1160   0.1191  0.06668
+## Detection Prevalence   0.2940   0.2137   0.2133   0.2004  0.07851
+## Balanced Accuracy      0.8390   0.7804   0.7738   0.8145  0.67422</code></pre>
+<hr />
+<ol>
+<li><p>Kuhn, Max; Johnson, Kjell (2013-05-17). Applied Predictive Modeling (Page 112). Springer. Kindle Edition.<a href="#fnref1">↩</a></p></li>
+</ol>
+<h3>Basic Tree</h3>
+<p>Having tried a couple of linear models without much success, it is probably time to take a chance with some non-parametric one. Below, we fit a basic classification tree with a <em>tuneLength</em> parameter of 30. This instructs the <em>train</em> function to tune the <em>cp</em> parameter over 30 values. The <em>cp</em> parameter is called <em>complexity parameter</em> and it is used to penalize the error rate using the size of the tree.</p>
+<p>Before fitting the models to follow, we retrieve our original data, since the data transformations we applied are not longer necessary for classification trees.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(trainSet, testSet, <span class="dt">file=</span><span class="st">&quot;trtst.ds3&quot;</span>)  <span class="co"># save transformed data sets </span>
+<span class="kw">rm</span>(trainSet, testSet)                      <span class="co"># remove from environment</span>
+<span class="kw">load</span>(<span class="st">&quot;trtst.ds1&quot;</span>)                          <span class="co"># load untransformed data</span>
+targetCol &lt;-<span class="st"> </span><span class="kw">ncol</span>(trainSet)                <span class="co"># pointer to the target </span></code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">source</span>(<span class="st">&quot;AuxFunctions.R&quot;</span>)
+<span class="kw">library</span>(caret); <span class="kw">library</span>(rpart)
+<span class="kw">set.seed</span>(<span class="dv">758120</span>)    
 
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
+ctrl &lt;-<span class="st"> </span><span class="kw">trainControl</span>(<span class="dt">classProbs =</span> <span class="ot">TRUE</span>, 
+                     <span class="dt">savePredictions =</span> <span class="ot">TRUE</span>)
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+rpartFit &lt;-<span class="st"> </span><span class="kw">train</span>(<span class="dt">x =</span> trainSet[, -targetCol], 
+                  <span class="dt">y =</span> trainSet$classe,
+                  <span class="dt">method =</span> <span class="st">&quot;rpart&quot;</span>,      <span class="co"># basic tree</span>
+                  <span class="dt">tuneLength =</span> <span class="dv">30</span>,       <span class="co"># tuning parameter</span>
+                  <span class="dt">trControl =</span> ctrl)      <span class="co"># control parameters</span>
 
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+rpart.pred &lt;-<span class="st"> </span><span class="kw">predict</span>(rpartFit, <span class="dt">newdata=</span>testSet[, -targetCol])  <span class="co"># get predictions</span>
+cm3 &lt;-<span class="st"> </span><span class="kw">confusionMatrix</span>(rpart.pred, testSet[, targetCol])        <span class="co"># results</span>
+accuracyTable &lt;-<span class="st"> </span><span class="kw">getAcc</span>(cm3, accuracyTable, <span class="dt">mdlName=</span><span class="st">&quot;rpart&quot;</span>)    <span class="co"># add model&#39;s results</span>
+cm3$overall[<span class="dv">1</span>:<span class="dv">2</span>]; <span class="kw">t</span>(cm3$byClass)                                <span class="co"># show results </span></code></pre>
+<pre><code>## Accuracy    Kappa 
+##    0.842    0.800</code></pre>
+<pre><code>##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9348   0.7724   0.8023   0.8358   0.8147
+## Specificity            0.9652   0.9472   0.9560   0.9620   0.9725
+## Pos Pred Value         0.9144   0.7781   0.7940   0.8116   0.8697
+## Neg Pred Value         0.9738   0.9455   0.9582   0.9676   0.9589
+## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
+## Detection Rate         0.2659   0.1495   0.1399   0.1370   0.1497
+## Detection Prevalence   0.2908   0.1921   0.1762   0.1688   0.1721
+## Balanced Accuracy      0.9500   0.8598   0.8792   0.8989   0.8936</code></pre>
+<p>It is easy to appreciate that this model has made a significant improvement on accuracy over the two previous ones. This probably means that the nature of the problem is more tractable by non-parametric models.</p>
+<h3>Bagged Trees</h3>
+<p>As classification tree models are known to present high variance characteristics, it is only reasonable to attempt to reduce our model’s variance by adding <em>bootstrap aggregation</em> (bagging). We expect that this also improves the predictive performance of the bagged model over the simple tree. In this case, we use a tuning parameter of 15 for the number of bootstrap samples to aggregate. We chose this number attempting to make a trade-off between the model’s performance and the computing time and resources.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">source</span>(<span class="st">&quot;AuxFunctions.R&quot;</span>)
+<span class="kw">library</span>(caret); <span class="kw">library</span>(ipred); 
+<span class="kw">set.seed</span>(<span class="dv">758120</span>)
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+ctrl &lt;-<span class="st"> </span><span class="kw">trainControl</span>(<span class="dt">classProbs =</span> <span class="ot">TRUE</span>,                  <span class="co"># We want class probabilities </span>
+                     <span class="dt">savePredictions =</span> <span class="ot">TRUE</span>)
 
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
-
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/GuySK">GuySK</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
-    </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
-  </body>
+treebagFit &lt;-<span class="st"> </span><span class="kw">train</span>(<span class="dt">x =</span> trainSet[, -targetCol], 
+                    <span class="dt">y =</span> trainSet$classe,
+                    <span class="dt">method =</span> <span class="st">&quot;treebag&quot;</span>,                  <span class="co"># bagged trees</span>
+                    <span class="dt">nbagg =</span> <span class="dv">15</span>,                          <span class="co"># number of trees</span>
+                    <span class="dt">trControl =</span> ctrl)                    <span class="co"># control parameters</span></code></pre>
+<pre><code>## Loading required package: plyr</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">treebag.pred &lt;-<span class="st"> </span><span class="kw">predict</span>(treebagFit, <span class="dt">newdata=</span>testSet[, -targetCol]) <span class="co"># get predictions</span>
+cm4 &lt;-<span class="st"> </span><span class="kw">confusionMatrix</span>(treebag.pred, testSet[, targetCol])         <span class="co"># results</span>
+accuracyTable &lt;-<span class="st"> </span><span class="kw">getAcc</span>(cm4, accuracyTable, <span class="dt">mdlName=</span><span class="st">&quot;treebag&quot;</span>)     <span class="co"># add model&#39;s results</span>
+cm4$overall[<span class="dv">1</span>:<span class="dv">2</span>]; <span class="kw">t</span>(cm4$byClass)                                   <span class="co"># show results</span></code></pre>
+<pre><code>## Accuracy    Kappa 
+##   0.9829   0.9783</code></pre>
+<pre><code>##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9950   0.9705   0.9766   0.9789   0.9867
+## Specificity            0.9923   0.9970   0.9941   0.9966   0.9983
+## Pos Pred Value         0.9809   0.9871   0.9721   0.9825   0.9922
+## Neg Pred Value         0.9980   0.9929   0.9951   0.9959   0.9970
+## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
+## Detection Rate         0.2830   0.1878   0.1703   0.1605   0.1813
+## Detection Prevalence   0.2885   0.1903   0.1752   0.1633   0.1827
+## Balanced Accuracy      0.9936   0.9837   0.9853   0.9877   0.9925</code></pre>
+<h2>Comparing Models</h2>
+<p>Below the results we got from the models we have fitted so far.</p>
+<pre class="sourceCode r"><code class="sourceCode r">accuracyTable</code></pre>
+<pre><code>##         Accuracy  Kappa
+## lda       0.6890 0.6068
+## pls       0.6523 0.5602
+## rpart     0.8420 0.8000
+## treebag   0.9174 0.8955
+## treebag   0.9829 0.9783</code></pre>
+<p>We can see that bagging has significantly improved tree performance. We can better appreciate this by taking a look at several different measures in this model’s confusion matrix.</p>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1388   20    3    1    3
+##          B    3  921    9    0    0
+##          C    1    5  835   15    3
+##          D    1    1    6  787    6
+##          E    2    2    2    1  889
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.983         
+##                  95% CI : (0.979, 0.986)
+##     No Information Rate : 0.284         
+##     P-Value [Acc &gt; NIR] : &lt; 2e-16       
+##                                         
+##                   Kappa : 0.978         
+##  Mcnemar&#39;s Test P-Value : 0.00442       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.995    0.970    0.977    0.979    0.987
+## Specificity             0.992    0.997    0.994    0.997    0.998
+## Pos Pred Value          0.981    0.987    0.972    0.983    0.992
+## Neg Pred Value          0.998    0.993    0.995    0.996    0.997
+## Prevalence              0.284    0.194    0.174    0.164    0.184
+## Detection Rate          0.283    0.188    0.170    0.160    0.181
+## Detection Prevalence    0.289    0.190    0.175    0.163    0.183
+## Balanced Accuracy       0.994    0.984    0.985    0.988    0.992</code></pre>
+<p>Having reached an Accuracy of 98% (Kappa 97%) we take this as our final model. It can be appreciated that both Positive and Negative predictive value parameters are beyond 98% for class A in this model. This imply that we would get a very good ROC curve, that is, that our model will be very effective predicting this class (see Conclusions for further implications).</p>
+<p>Note. <em>We fitted several other models varying the number of bootstrap samples and found that there is no significant improvement in the model’s performance beyond 15. So we took this number as the parameter for our final model</em>.</p>
+<h2>Conclusions</h2>
+<p>We have followed so far instructions for building a model for predicting the way an exercise is done. However, this approach seems not to be optimal for the purpose of the original project. If our goal is to prevent athletes of doing an exercise in the wrong way, we should pay attention only to the right way of doing it. In the end, there are probably infinite ways of doing it wrong and trying to identify each of them does not make any sense. This means we should re-define our model to a two class classification one. If we do so and recalculate our final model’s results we get the following confusion matrix.</p>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B
+##          A 1367   16
+##          B   28 3493
+##                                         
+##                Accuracy : 0.991         
+##                  95% CI : (0.988, 0.993)
+##     No Information Rate : 0.716         
+##     P-Value [Acc &gt; NIR] : &lt;2e-16        
+##                                         
+##                   Kappa : 0.978         
+##  Mcnemar&#39;s Test P-Value : 0.0973        
+##                                         
+##             Sensitivity : 0.980         
+##             Specificity : 0.995         
+##          Pos Pred Value : 0.988         
+##          Neg Pred Value : 0.992         
+##              Prevalence : 0.284         
+##          Detection Rate : 0.279         
+##    Detection Prevalence : 0.282         
+##       Balanced Accuracy : 0.988         
+##                                         
+##        &#39;Positive&#39; Class : A             
+## </code></pre>
+<h2>Appendix</h2>
+<h4>Fig 1. Skewed variables</h4>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA8AAAAPACAMAAADNCOCpAAAAtFBMVEX9/v0AAAAAADkAAGUAOTkAOWUAOY8AZo8AZrU5AAA5ADk5AGU5OWU5OY85ZmU5ZrU5j485j7U5j9plAABlADllAGVlOQBlOTllOY9lZjllZmVlj49lj9pltbVltdpltf2POQCPOTmPOWWPZgCPjzmPtY+P27WP29qP2/21ZgC1Zjm1jzm124+1/rW1/tq1/v3ajznatWXa24/a/rXa/tra/v39tWX924/929r9/rX9/tr9/v2QhEvjAAAAPHRSTlP//////////////////////////////////////////////////////////////////////////////wC7iOunAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR4nO3dD3viyJnu4ZWddaAnPdng7p3OntlgT2ZPIHNmTSaLWOD7f6+jksAWAvSnVJLqqfrd1zX2NCAJ9OpB0gsu/csRgKx/mfoJALBHgAFhBBgQRoABYQQYEEaAAWEEGBBGgAFhBBgQRoABYQQYEEaAAWEEGBBGgAFhBBgQRoABYQQYEEaAAWEEGBBGgAFhBBgQFn2A989P2/K/Dy+Pb1M9F7hQqmAExSXAt2q8++NUTwe9NQU4rOIS4Bs13s1nUz0d9NYQ4MCKG3iA82KmyfK4myfJwyr/5yZZlCqb/d9fk+wB2f8kSXZj9pD/fkmS4A61glJUs/g9e//1UcFSgOuKu5s/vh1ezIx0BR7gLK3L4/phtX+e5aHN/5mVMs1CXNg/m1ybRzxtzX8BvkkH51xN8zur5Puvjwq+P7C+uNl7udkilIUe4Kxcxd72kL/z7uZZnf/j8W3z/rab35vto/NIb4qdNAH2XVHNtAjf+6+PCp4e1lRcMxvxUoce4Kxk/29uDpnNO7Q5YHr67btfv/zt5f3c6FTj7J04tyTA/jtX87T3fP/1UcH3BzYUdzfXPoAOP8DH9OHPWY3Mm3Rezc3jz0//8/Jvz+cj6Ms36WOQfY7gnKt5Yw98vG5i1RR3//y7uXi3I/gAZ+/WeRFn2Tu0+Qxhnv/fx/tudn/+xnw+RSr+nwD77FzNIsSL0q9zBU8PbCru+mGVih9DBx/g4zp/911n50w/Z7HNznqW2Qbw8enCRaMyq3xe/nWifmQV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" title="plot of chunk fig1" alt="plot of chunk fig1" /></p>
+<h4>Fig 2. Skewed variables after Box-Cox transformations</h4>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA8AAAAPACAMAAADNCOCpAAAAqFBMVEX9/v0AAAAAADkAAGUAOTkAOWUAOY8AZmUAZo8AZrU5AAA5ADk5AGU5OQA5OWU5OY85ZrU5j485j7U5j9plAABlADllAGVlOQBlOTllOY9lZjllZmVlj49lj9pltbVltdpltf2POQCPOTmPOWWPZgCPjzmPtY+P29qP2/21ZgC124+1/rW1/tq1/v3ajzna24/a/tra/v39tWX924/929r9/rX9/tr9/v1wea45AAAAOHRSTlP/////////////////////////////////////////////////////////////////////////ADtcEcoAAAAJcEhZcwAADsMAAA7DAcdvqGQAACAASURBVHic7Z0Le9u6lWiHdutWStr0Vk5OT2/PVE4fI90zVsbSSPz//+zyadESXwBBAntjrS+RbEEERGwuPrZo4D9SABDLf/j+AABgDwIDCAaBAQSDwACCQWAAwSAwgGAQGEAwCAwgGAQGEAwCAwgGgQEEg8AAgkFgAMEgMIBgEBhAMAgMIBgEBhAMAgMIBoEBBIPAAIJBYADBRC/w+fnprfn75eXx1ddnARc0IhhBcBG4LcanP/n6ODCZIYF1BReBW2J8Wq98fRyYzIDAyoKrXOAimMdkm57WSfKwK349JJtGZLOf/plkb8h+SJLsxewt//2SJOpOtVRRRrN8Xr0/XSPYELgvuKf14+vlJa9ILsoFzmzdpvuH3fl5VUhb/JqF8phJXHJ+zr3O3/H0lv9XuJNWRx3N/DmL5PvTNYLvb+wPbrYvz7cIyWgXOAtXebS9FHve0zqL8/99fD2873aL0uwYXSh9KA/SCBw6ZTSPpXzvT9cIVm8bCm5ejfBQaxc4C9n/W+enzPkeOj9hevrx+dev//Xyfm1UxTjbExdsETh86mhWR8/3p2sE3984ENzTWvYJtH6B0+PDX7MY5TvpIpqHx389/c/L/3muz6A/7qRTlXkOddTRbDkCp/dJrJ7gnp9/sxae7VAvcLa3LoK4yvbQ+XcI6+Kn6343Ky92zPUlUvkzAodMHc1S4k3jqY5g9cah4O4fdkfh59DqBU73xd53n10z/SvTNrvq2WYbwPXbhQ+JyizyRfj3ifQzK93U0bzPQtcRLBkIbiHvXnYWKwaB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" title="plot of chunk fig2" alt="plot of chunk fig2" /></p>
+</body>
 </html>
